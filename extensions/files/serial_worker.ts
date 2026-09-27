@@ -405,7 +405,9 @@ async function arduinoFlash(
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
-      try { child.kill("SIGKILL"); } catch { /* gone */ }
+      try {
+        child.kill("SIGKILL");
+      } catch { /* gone */ }
     }, timeoutMs);
     let text = "";
     const drain = async (r: ReadableStream<Uint8Array>) => {
@@ -420,18 +422,26 @@ async function arduinoFlash(
     if (!status.success) {
       throw new Error(
         `arduino-cli failed (exit ${status.code}` +
-        `${timedOut ? ", timed out" : ""}): ${text.trim().slice(-500)}`,
+          `${timedOut ? ", timed out" : ""}): ${text.trim().slice(-500)}`,
       );
     }
     return text;
   };
 
   const compileOutput = await run([
-    "compile", "--fqbn", fqbn, sketch,
+    "compile",
+    "--fqbn",
+    fqbn,
+    sketch,
   ]);
 
   const uploadOutput = await run([
-    "upload", "-p", device, "--fqbn", fqbn, sketch,
+    "upload",
+    "-p",
+    device,
+    "--fqbn",
+    fqbn,
+    sketch,
   ]);
 
   // The S3 resets after upload; wait for the device node to reappear.
