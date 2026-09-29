@@ -30,8 +30,16 @@ import {
 /** Model definition for an ESP32-S3 speaking a JSON line protocol. */
 export const model = {
   type: "@vcjdeboer/s3-device",
-  version: "2026.09.26.2",
+  version: "2026.09.29.1",
   globalArguments: GlobalArgsSchema,
+  upgrades: [
+    {
+      toVersion: "2026.09.29.1",
+      description:
+        "Shared base synced with @vcjdeboer/s3-panel (holder event buffer, drain-events); global arguments unchanged",
+      upgradeAttributes: (old: Record<string, unknown>) => old,
+    },
+  ],
   resources: baseResources(),
   methods: baseMethods(),
 };
