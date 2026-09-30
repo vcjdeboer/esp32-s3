@@ -23,8 +23,10 @@ import {
   configureLine,
   GlobalArgsSchema,
   replyFailed,
+  SendLineSchema,
   wifiFields,
   WifiPasswordSchema,
+  WifiSsidSchema,
 } from "./_lib/s3_base.ts";
 
 Deno.test("the model type and version are well formed", () => {
@@ -155,6 +157,56 @@ Deno.test("a Wi-Fi password is empty or 8 to 63 characters, and sensitive", () =
   assert(
     configure.arguments.shape.password === WifiPasswordSchema,
     "configure must use the sensitive password schema",
+  );
+});
+
+Deno.test("an SSID is 1 to 32 characters, and sensitive", () => {
+  assert(WifiSsidSchema.safeParse("x").success);
+  assert(!WifiSsidSchema.safeParse("").success);
+  assert(!WifiSsidSchema.safeParse("x".repeat(33)).success);
+  assertEquals(WifiSsidSchema.meta()?.sensitive, true);
+  const configure = model.methods.configure as {
+    arguments: { shape: Record<string, unknown> };
+  };
+  assert(
+    configure.arguments.shape.ssid === WifiSsidSchema,
+    "configure must use the sensitive SSID schema",
+  );
+});
+
+Deno.test("send refuses config set with Wi-Fi credentials", () => {
+  for (
+    const line of [
+      'config set {"ssid":"x","pass":"hunter2hunter2"}',
+      'config set {"pass":"hunter2hunter2"}',
+      '  CONFIG   SET {"\\u0073sid":"x"}',
+      'config\tset {"ssid":"x"}',
+      "config set",
+      "config set hunter2hunter2",
+      "config set [1]",
+    ]
+  ) {
+    assert(!SendLineSchema.safeParse(line).success, `accepted: ${line}`);
+  }
+  for (
+    const line of [
+      'config set {"profile":"example"}',
+      'config set {"api":"https://example.com"}',
+      "config show",
+      "config forget",
+      "configset",
+      "ping",
+      "",
+    ]
+  ) {
+    assert(SendLineSchema.safeParse(line).success, `refused: ${line}`);
+  }
+  const send = model.methods.send as {
+    arguments: { shape: Record<string, unknown> };
+  };
+  assert(
+    send.arguments.shape.line === SendLineSchema,
+    "send must validate its line with SendLineSchema",
   );
 });
 

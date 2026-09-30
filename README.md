@@ -50,19 +50,30 @@ separate `write` then `read` pair useless.
 | `detect` | List serial nodes without opening any, and say which one this instance would use | `devices-host` |
 | `ping` | Ask the board to identify itself | `state-latest` |
 | `status` | Read the board's self-reported status | `state-latest` |
-| `send` | Send any command line, record the single JSON reply | `exchange-latest` |
+| `send` | Send any command line, record the single JSON reply. Refuses `config set` with `ssid` or `pass`: use `configure` | `exchange-latest` |
 | `write` | Write bytes, await nothing | `sent-latest` |
 | `read` | Listen for a window and record what the board printed | `capture-latest` |
 | `hold` | Start the detached worker that holds the port open | `holder-current` |
 | `release` | Close the port and let the worker exit | `holder-current` |
 | `wifi` | Read the board's Wi-Fi link (`wifi status`): state, connected, ip, rssi, mac | `wifi-latest` |
-| `configure` | Store Wi-Fi credentials (`config set`); the board joins before saving. The password is sensitive: pass it from a vault expression | `config-latest` (key names only) |
+| `configure` | Store Wi-Fi credentials (`config set`); the board joins before saving. SSID and password are sensitive: pass both from vault expressions | `config-latest` (key names only) |
 | `forget` | Factory-reset the board's stored settings (`config forget`); needs `confirm=true` | `config-latest` |
 
 `write` sends its `data` **verbatim** — escape sequences are not decoded, so pass
 a real newline rather than a backslash followed by `n`.
 
 Release the holder before flashing the board: a held port blocks the upload.
+
+## Security
+
+- **Wi-Fi credentials** go from a vault to the board over USB and nowhere else.
+  `configure` marks the SSID and password sensitive (reports show `***`) and
+  records only which keys were stored. `send` refuses a `config set` carrying
+  them, because `send` logs and records its line.
+- **USB is trusted.** The serial protocol has no authentication: anyone with a
+  cable to the board can reconfigure it, run `config forget`, or draw on it. The
+  board never answers with a stored SSID or password, so credentials cannot be
+  read back out over USB. Keep the board where you would keep an unlocked laptop.
 
 ## Use
 
