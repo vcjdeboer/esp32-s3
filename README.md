@@ -55,6 +55,9 @@ separate `write` then `read` pair useless.
 | `read` | Listen for a window and record what the board printed | `capture-latest` |
 | `hold` | Start the detached worker that holds the port open | `holder-current` |
 | `release` | Close the port and let the worker exit | `holder-current` |
+| `wifi` | Read the board's Wi-Fi link (`wifi status`): state, connected, ip, rssi, mac | `wifi-latest` |
+| `configure` | Store Wi-Fi credentials (`config set`); the board joins before saving. The password is sensitive: pass it from a vault expression | `config-latest` (key names only) |
+| `forget` | Factory-reset the board's stored settings (`config forget`); needs `confirm=true` | `config-latest` |
 
 `write` sends its `data` **verbatim** — escape sequences are not decoded, so pass
 a real newline rather than a backslash followed by `n`.
@@ -81,7 +84,11 @@ Answer one JSON object per command line, and include `ok`:
 
 A reply with `"ok":false` is recorded as `outcome=error` while the exchange
 itself still counts as having happened. `ping` and `status` are the two commands
-this type expects by name; everything else is yours.
+this type expects by name; everything else is yours. Firmware with Wi-Fi also
+answers `wifi status`, `config set <json>` (`ssid`, `pass`; validate before
+saving, reply with the names stored, never the values) and `config forget` for
+the three Wi-Fi methods; firmware without them answers `unknown command`, which
+these methods report as an error.
 
 A reference firmware lives in the `esp32` repo under `firmware-s3/`.
 
