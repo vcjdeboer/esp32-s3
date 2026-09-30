@@ -150,6 +150,11 @@ Deno.test("a Wi-Fi password is empty or 8 to 63 characters, and sensitive", () =
   assert(!WifiPasswordSchema.safeParse("1234567").success);
   assert(WifiPasswordSchema.safeParse("x".repeat(63)).success);
   assert(!WifiPasswordSchema.safeParse("x".repeat(64)).success);
+  // The board counts bytes: 32 two-byte letters are 64 bytes, too long;
+  // four of them are 8 bytes, long enough.
+  assert(!WifiPasswordSchema.safeParse("é".repeat(32)).success);
+  assert(WifiPasswordSchema.safeParse("é".repeat(4)).success);
+  assert(!WifiPasswordSchema.safeParse("é".repeat(3)).success);
   assertEquals(WifiPasswordSchema.meta()?.sensitive, true);
   const configure = model.methods.configure as {
     arguments: { shape: Record<string, unknown> };
@@ -164,6 +169,8 @@ Deno.test("an SSID is 1 to 32 characters, and sensitive", () => {
   assert(WifiSsidSchema.safeParse("x").success);
   assert(!WifiSsidSchema.safeParse("").success);
   assert(!WifiSsidSchema.safeParse("x".repeat(33)).success);
+  assert(WifiSsidSchema.safeParse("é".repeat(16)).success);
+  assert(!WifiSsidSchema.safeParse("é".repeat(17)).success);
   assertEquals(WifiSsidSchema.meta()?.sensitive, true);
   const configure = model.methods.configure as {
     arguments: { shape: Record<string, unknown> };
