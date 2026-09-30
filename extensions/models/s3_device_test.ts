@@ -229,6 +229,10 @@ Deno.test("write refuses Wi-Fi credentials on any line", () => {
       'config set {"ssid":"x","pass":"hunter2hunter2"}\n',
       'ping\nconfig set {"pass":"hunter2hunter2"}\n',
       "config set\r\n",
+      // s3panel drops \r before splitting, so these arrive as `config set`.
+      'config\r set {"ssid":"x","pass":"hunter2hunter2"}\n',
+      'con\rfig set {"pass":"hunter2hunter2"}\n',
+      'config s\ret {"ssid":"x"}\n',
     ]
   ) {
     assert(!WriteDataSchema.safeParse(data).success, `accepted: ${data}`);
@@ -260,6 +264,16 @@ Deno.test("a board's refusal is recorded with the credentials masked", () => {
     "join: wrong password",
   );
   assertEquals(maskSecrets(null, ["a"]), null);
+  // Echoed inside JSON, escaped.
+  assertEquals(
+    maskSecrets('got {"pass":"pa\\"ss\\\\word1"}', ["x", 'pa"ss\\word1']),
+    'got {"pass":"***"}',
+  );
+  // The SSID inside the password must not leave the rest of it showing.
+  assertEquals(
+    maskSecrets("pass HomeNet2024!", ["HomeNet", "HomeNet2024!"]),
+    "pass ***",
+  );
 });
 
 Deno.test("configure waits at least as long as the board tries to join", () => {
