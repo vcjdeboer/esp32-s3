@@ -8,7 +8,8 @@
  * explicit outcome, so a run is auditable after the fact.
  *
  * Methods: `detect`, `ping`, `status`, `send`, `write`, `read`, `hold`,
- * `release`. Firmware-specific commands go through `send`; a model type that
+ * `release`, `flash`, `wifi`, `configure`, `forget`. Firmware-specific
+ * commands go through `send`; a model type that
  * wants first-class methods for them should build on `_lib/s3_base.ts` the way
  * `@vcjdeboer/s3-panel` does for its screen.
  *

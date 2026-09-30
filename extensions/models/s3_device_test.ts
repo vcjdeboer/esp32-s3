@@ -11,9 +11,21 @@
  * @module
  */
 
-import { assert, assertEquals, assertThrows } from "jsr:@std/assert@1";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertThrows,
+} from "jsr:@std/assert@1";
 import { model } from "./s3_device.ts";
-import { GlobalArgsSchema, replyFailed } from "./_lib/s3_base.ts";
+import {
+  configFields,
+  configureLine,
+  GlobalArgsSchema,
+  replyFailed,
+  wifiFields,
+  WifiPasswordSchema,
+} from "./_lib/s3_base.ts";
 
 Deno.test("the model type and version are well formed", () => {
   assertEquals(model.type, "@vcjdeboer/s3-device");
@@ -26,14 +38,17 @@ Deno.test("the model type and version are well formed", () => {
 
 Deno.test("every base method is present", () => {
   assertEquals(Object.keys(model.methods).sort(), [
+    "configure",
     "detect",
     "flash",
+    "forget",
     "hold",
     "ping",
     "read",
     "release",
     "send",
     "status",
+    "wifi",
     "write",
   ]);
 });
@@ -103,4 +118,101 @@ Deno.test("replyFailed reads the firmware's own ok flag", () => {
   assertEquals(replyFailed(null), false);
   // A reply with no ok field is not a failure: some commands just report state.
   assertEquals(replyFailed({ fw: "x" }), false);
+});
+
+Deno.test("configureLine keeps any password on one line and intact", () => {
+  const passwords = [
+    "",
+    "hunter2hunter2",
+    "with space",
+    'quote"and\\slash',
+    "semi;colon,comma:colon",
+    "line\nbreak\r",
+    "ümlaut-ß-密码",
+    "pipe|pipe",
+  ];
+  for (const pass of passwords) {
+    const line = configureLine("My Net", pass);
+    assert(!/[\r\n]/.test(line), `raw line break for ${JSON.stringify(pass)}`);
+    assert(line.startsWith("config set {"));
+    assertEquals(JSON.parse(line.slice("config set ".length)), {
+      ssid: "My Net",
+      pass,
+    });
+  }
+});
+
+Deno.test("a Wi-Fi password is empty or 8 to 63 characters, and sensitive", () => {
+  assert(WifiPasswordSchema.safeParse("").success);
+  assert(WifiPasswordSchema.safeParse("12345678").success);
+  assert(!WifiPasswordSchema.safeParse("1234567").success);
+  assert(WifiPasswordSchema.safeParse("x".repeat(63)).success);
+  assert(!WifiPasswordSchema.safeParse("x".repeat(64)).success);
+  assertEquals(WifiPasswordSchema.meta()?.sensitive, true);
+  const configure = model.methods.configure as {
+    arguments: { shape: Record<string, unknown> };
+  };
+  assert(
+    configure.arguments.shape.password === WifiPasswordSchema,
+    "configure must use the sensitive password schema",
+  );
+});
+
+Deno.test("config records name stored keys only, never values", () => {
+  const f = configFields({
+    ok: true,
+    stored: ["ssid", "pass", "hunter2hunter2", 7],
+    joined: true,
+    pass: "hunter2hunter2",
+  });
+  assertEquals(f.stored, ["ssid", "pass"]);
+  assertEquals(f.joined, true);
+  assert(!JSON.stringify(f).includes("hunter2"));
+  assertEquals(configFields(null), {
+    stored: [],
+    joined: null,
+    forgotten: false,
+    error: null,
+  });
+  assertEquals(configFields({ ok: false, error: "join" }).error, "join");
+  assertEquals(configFields({ ok: true, forgotten: true }).forgotten, true);
+});
+
+Deno.test("wifiFields reads the board's report and defaults the rest", () => {
+  assertEquals(
+    wifiFields({
+      ok: true,
+      state: "badge",
+      connected: true,
+      ip: "10.0.0.7",
+      rssi: -58,
+      mac: "aa:bb:cc:dd:ee:ff",
+    }),
+    {
+      state: "badge",
+      connected: true,
+      ip: "10.0.0.7",
+      rssi: -58,
+      mac: "aa:bb:cc:dd:ee:ff",
+    },
+  );
+  assertEquals(wifiFields(null), {
+    state: "",
+    connected: false,
+    ip: "",
+    rssi: 0,
+    mac: "",
+  });
+});
+
+Deno.test("forget refuses without confirm, before touching the board", async () => {
+  const forget = model.methods.forget as {
+    execute: (a: unknown, c: unknown) => Promise<unknown>;
+  };
+  // An empty context: any attempt to reach the board would throw a TypeError.
+  await assertRejects(
+    () => forget.execute({ confirm: false }, {}),
+    Error,
+    "confirm=true",
+  );
 });
