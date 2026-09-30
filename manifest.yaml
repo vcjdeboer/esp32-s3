@@ -1,6 +1,6 @@
 manifestVersion: 1
 name: '@vcjdeboer/esp32-s3'
-version: 2026.09.29.1
+version: 2026.09.30.1
 description: >
   Drive an ESP32-S3 from swamp over USB serial. One model type, `s3-device`,
   speaks a JSON line protocol: one command line in, one JSON object out. It

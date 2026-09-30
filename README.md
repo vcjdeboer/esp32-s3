@@ -50,8 +50,8 @@ separate `write` then `read` pair useless.
 | `detect` | List serial nodes without opening any, and say which one this instance would use | `devices-host` |
 | `ping` | Ask the board to identify itself | `state-latest` |
 | `status` | Read the board's self-reported status | `state-latest` |
-| `send` | Send any command line, record the single JSON reply. Refuses `config set` with `ssid` or `pass`: use `configure` | `exchange-latest` |
-| `write` | Write bytes, await nothing | `sent-latest` |
+| `send` | Send one command line (no line breaks), record the single JSON reply. Refuses `config set` with `ssid` or `pass`: use `configure` | `exchange-latest` |
+| `write` | Write bytes, await nothing. Refuses a line with `config set` carrying `ssid` or `pass` | `sent-latest` |
 | `read` | Listen for a window and record what the board printed | `capture-latest` |
 | `hold` | Start the detached worker that holds the port open | `holder-current` |
 | `release` | Close the port and let the worker exit | `holder-current` |
@@ -68,8 +68,9 @@ Release the holder before flashing the board: a held port blocks the upload.
 
 - **Wi-Fi credentials** go from a vault to the board over USB and nowhere else.
   `configure` marks the SSID and password sensitive (reports show `***`) and
-  records only which keys were stored. `send` refuses a `config set` carrying
-  them, because `send` logs and records its line.
+  records only which keys were stored, with the SSID and password masked in any
+  error the board returns. `send` and `write` refuse a `config set` carrying
+  them, because both record what they send; `send` also refuses line breaks.
 - **USB is trusted.** The serial protocol has no authentication: anyone with a
   cable to the board can reconfigure it, run `config forget`, or draw on it. The
   board never answers with a stored SSID or password, so credentials cannot be
@@ -97,7 +98,8 @@ A reply with `"ok":false` is recorded as `outcome=error` while the exchange
 itself still counts as having happened. `ping` and `status` are the two commands
 this type expects by name; everything else is yours. Firmware with Wi-Fi also
 answers `wifi status`, `config set <json>` (`ssid`, `pass`; validate before
-saving, reply with the names stored, never the values) and `config forget` for
+saving, reply with the names stored, never the values, and never echo them in
+an `error`) and `config forget` for
 the three Wi-Fi methods; firmware without them answers `unknown command`, which
 these methods report as an error.
 

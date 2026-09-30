@@ -22,11 +22,13 @@ import {
   configFields,
   configureLine,
   GlobalArgsSchema,
+  maskSecrets,
   replyFailed,
   SendLineSchema,
   wifiFields,
   WifiPasswordSchema,
   WifiSsidSchema,
+  WriteDataSchema,
 } from "./_lib/s3_base.ts";
 
 Deno.test("the model type and version are well formed", () => {
@@ -191,6 +193,10 @@ Deno.test("send refuses config set with Wi-Fi credentials", () => {
       "config set",
       "config set hunter2hunter2",
       "config set [1]",
+      // The board runs each line on its own, so a second line would slip by.
+      'ping\nconfig set {"ssid":"x","pass":"hunter2hunter2"}',
+      'status\r\nconfig set {"pass":"hunter2hunter2"}',
+      "ping\nstatus",
     ]
   ) {
     assert(!SendLineSchema.safeParse(line).success, `accepted: ${line}`);
@@ -215,6 +221,55 @@ Deno.test("send refuses config set with Wi-Fi credentials", () => {
     send.arguments.shape.line === SendLineSchema,
     "send must validate its line with SendLineSchema",
   );
+});
+
+Deno.test("write refuses Wi-Fi credentials on any line", () => {
+  for (
+    const data of [
+      'config set {"ssid":"x","pass":"hunter2hunter2"}\n',
+      'ping\nconfig set {"pass":"hunter2hunter2"}\n',
+      "config set\r\n",
+    ]
+  ) {
+    assert(!WriteDataSchema.safeParse(data).success, `accepted: ${data}`);
+  }
+  for (
+    const data of ["ping\n", 'config set {"profile":"example"}\n', "", "\n\n"]
+  ) {
+    assert(WriteDataSchema.safeParse(data).success, `refused: ${data}`);
+  }
+  const write = model.methods.write as {
+    arguments: { shape: Record<string, unknown> };
+  };
+  assert(
+    write.arguments.shape.data === WriteDataSchema,
+    "write must validate its data with WriteDataSchema",
+  );
+});
+
+Deno.test("a board's refusal is recorded with the credentials masked", () => {
+  assertEquals(
+    maskSecrets("bad pass hunter2hunter2 for My Net", [
+      "My Net",
+      "hunter2hunter2",
+    ]),
+    "bad pass *** for ***",
+  );
+  assertEquals(
+    maskSecrets("join: wrong password", ["x y", ""]),
+    "join: wrong password",
+  );
+  assertEquals(maskSecrets(null, ["a"]), null);
+});
+
+Deno.test("configure waits at least as long as the board tries to join", () => {
+  const configure = model.methods.configure as {
+    arguments: {
+      shape: Record<string, { safeParse(v: unknown): { success: boolean } }>;
+    };
+  };
+  assert(!configure.arguments.shape.joinMs.safeParse(5_000).success);
+  assert(configure.arguments.shape.joinMs.safeParse(25_000).success);
 });
 
 Deno.test("config records name stored keys only, never values", () => {
